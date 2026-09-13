@@ -1,0 +1,29 @@
+{
+  "parameters": [
+    {
+      "id": "rear_wing",
+      "keywords": ["instável", "instabilidade", "alta velocidade", "curvas rápidas", "traseira"],
+      "increase": {
+        "positive_effects": ["maior carga aerodinâmica traseira", "maior estabilidade em alta velocidade"],
+        "negative_effects": ["maior arrasto", "menor velocidade final"]
+      }
+    },
+    {
+      "id": "rear_toe",
+      "keywords": ["traseira", "tração", "aceleração", "saída"],
+      "increase": {
+        "positive_effects": ["maior estabilidade traseira", "maior previsibilidade sob aceleração"],
+        "negative_effects": ["maior arrasto mecânico", "menor agilidade em rotação"]
+      }
+    },
+    {
+      "id": "differential_preload",
+      "keywords": ["aceleração", "saída", "curvas lentas", "tração"],
+      "increase": {
+        "positive_effects": ["alteração no comportamento de entrega de torque"],
+        "negative_effects": ["pode reduzir a rotação do carro dependendo do conjunto"]
+      }
+    }
+  ]
+}
+

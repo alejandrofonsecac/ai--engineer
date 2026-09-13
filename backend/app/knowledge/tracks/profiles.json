@@ -1,0 +1,19 @@
+{
+  "Nordschleife": {
+    "surface": "irregular",
+    "kerbs": "importantes",
+    "elevation_changes": "muito altas",
+    "straight_line_importance": "alta",
+    "high_speed_sections": "alta",
+    "mechanical_compliance_importance": "alta"
+  },
+  "Spa-Francorchamps": {
+    "surface": "mista",
+    "kerbs": "moderadas",
+    "elevation_changes": "altas",
+    "straight_line_importance": "alta",
+    "high_speed_sections": "alta",
+    "mechanical_compliance_importance": "média"
+  }
+}
+

@@ -1,0 +1,9 @@
+{
+  "Porsche 992 GT3 R": {
+    "engine_position": "traseira",
+    "aero_sensitivity": "alta em condições de alta velocidade",
+    "traction_characteristics": "boa tração traseira, com transferência de peso relevante",
+    "general_balance": "requer preservar a confiança na traseira sem comprometer a rotação"
+  }
+}
+

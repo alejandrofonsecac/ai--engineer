@@ -111,11 +111,14 @@ class SessionRepository:
             for row in rows
         ]
 
-    def add_message(self, session_id: UUID, role: str, content: str) -> None:
+    def add_exchange(self, session_id: UUID, user: str, assistant: str) -> None:
         with get_connection() as connection:
-            connection.execute(
+            connection.executemany(
                 "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-                (str(session_id), role, content, _now()),
+                [
+                    (str(session_id), "user", user, _now()),
+                    (str(session_id), "assistant", assistant, _now()),
+                ],
             )
 
     def get_messages(self, session_id: UUID, limit: int = 12) -> list[dict[str, str]]:
@@ -130,4 +133,3 @@ class SessionRepository:
                 (str(session_id), limit),
             ).fetchall()
         return [dict(row) for row in reversed(rows)]
-

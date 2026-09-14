@@ -1,4 +1,6 @@
 import sqlite3
+from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 
 from app.config import get_settings
@@ -34,16 +36,20 @@ CREATE TABLE IF NOT EXISTS messages (
 """
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection() -> Iterator[sqlite3.Connection]:
     database_path: Path = get_settings().database_path
     database_path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(database_path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    try:
+        with connection:
+            yield connection
+    finally:
+        connection.close()
 
 
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
-

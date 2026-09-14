@@ -25,3 +25,6 @@ class SessionService:
         self.get(session_id)
         return self._repository.get_setup_history(session_id)
 
+    def get_messages(self, session_id: UUID) -> list[dict[str, str]]:
+        self.get(session_id)
+        return self._repository.get_messages(session_id, limit=100)

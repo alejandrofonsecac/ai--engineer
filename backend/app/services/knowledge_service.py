@@ -20,11 +20,20 @@ class KnowledgeService:
             for item in self._effects.get("parameters", [])
             if any(keyword in feedback for keyword in item.get("keywords", []))
         ]
+        low_speed = any(word in feedback for word in ("lenta", "lento", "baixa"))
+        on_throttle = any(word in feedback for word in ("aceler", "tração", "saída"))
+        if low_speed and on_throttle:
+            relevant_parameters = [
+                item for item in self._effects.get("parameters", [])
+                if item["id"] in ("differential_preload", "rear_toe")
+            ]
 
+        track_key = "Nordschleife" if track in ("Nordschleife", "Nürburgring Nordschleife") else track
         return {
-            "track_characteristics": self._tracks.get(track, {}),
+            "status": "Base inicial ilustrativa; não contém limites validados por simulador.",
+            "track_characteristics": self._tracks.get(track_key, {}),
             "car_characteristics": self._cars.get(car, {}),
-            "relevant_setup_knowledge": relevant_parameters,
+            "relevant_setup_knowledge": relevant_parameters[:2],
         }
 
     @staticmethod
@@ -32,4 +41,3 @@ class KnowledgeService:
         path = KNOWLEDGE_ROOT / relative_path
         with path.open(encoding="utf-8") as file:
             return json.load(file)
-

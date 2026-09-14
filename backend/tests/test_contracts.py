@@ -45,3 +45,14 @@ def test_context_builder_includes_relevant_knowledge() -> None:
     )
 
     assert "rear_wing" in messages[1].content
+
+
+def test_low_speed_traction_omits_aero():
+    knowledge = KnowledgeService().build_relevant_context(
+        "A traseira escapa quando acelero em curvas lentas.",
+        "Nürburgring Nordschleife", "Porsche 992 GT3 R",
+    )
+    ids = {item["id"] for item in knowledge["relevant_setup_knowledge"]}
+    assert "rear_wing" not in ids
+    assert "differential_preload" in ids
+    assert knowledge["track_characteristics"]["surface"] == "irregular"

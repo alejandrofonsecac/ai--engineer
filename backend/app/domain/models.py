@@ -1,9 +1,9 @@
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class Simulator(StrEnum):
@@ -40,6 +40,15 @@ class EngineerRecommendation(BaseModel):
     test_plan: TestPlan | None = None
     clarification_question: str | None = Field(default=None, max_length=500)
 
+    @model_validator(mode="after")
+    def validate_recommendation(self) -> "EngineerRecommendation":
+        if self.changes and (not self.test_plan or not self.trade_offs):
+            raise ValueError("Alterações exigem plano de teste e trade-offs.")
+        names = [change.parameter for change in self.changes]
+        if len(names) != len(set(names)):
+            raise ValueError("Parâmetros duplicados na recomendação.")
+        return self
+
 class CreateSessionRequest(BaseModel):
     simulator: Simulator
     car: str = Field(min_length=2, max_length=120)
@@ -66,7 +75,13 @@ class SetupVersionResponse(BaseModel):
 
 
 class ChatMessageRequest(BaseModel):
-    content: str = Field(min_length=1, max_length=4000)
+    model_config = ConfigDict(str_strip_whitespace=True)
+    content: str = Field(min_length=1, max_length=1200)
+
+
+class StoredMessageResponse(BaseModel):
+    role: str
+    content: str
 
 
 class ChatMessageResponse(BaseModel):

@@ -1,6 +1,8 @@
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { api } from './api'
+import { LiveEngineer, LiveSessionForm } from './LiveEngineer'
 
-type Page = 'home' | 'new-session' | 'engineer' | 'setup' | 'history' | 'compare'
+type Page = 'home' | 'new-session' | 'engineer' | 'demo-engineer' | 'setup' | 'history' | 'compare'
 type IconName =
   | 'home'
   | 'plus'
@@ -334,10 +336,10 @@ function Home({
       />
 
       <section className="home-section">
-        <p className="section-label">Sessões recentes</p>
+        <p className="section-label">Exemplos de sessões · demonstração visual</p>
         <div className="sessions-card">
           {sessions.map((session) => (
-            <button className="session-row" key={session.car} onClick={() => setPage('engineer')}>
+            <button className="session-row" key={session.car} onClick={() => setPage('demo-engineer')}>
               <span className="car-icon"><Icon name="car" size={18} /></span>
               <span className="session-row__details">
                 <strong>{session.car}</strong>
@@ -652,11 +654,36 @@ export default function App() {
   const [page, setPage] = useState<Page>('home')
   const [connected, setConnected] = useState(false)
   const [applied, setApplied] = useState(false)
+  const [connectionDetail, setConnectionDetail] = useState('Verificando IA local...')
+  const [sessionId, setSessionId] = useState<string | null>(() => {
+    try { return localStorage.getItem('vre.sessionId') } catch { return null }
+  })
+  async function checkConnection() {
+    setConnectionDetail('Verificando IA local...')
+    try {
+      const health = await api.health()
+      setConnected(health.available)
+      setConnectionDetail(health.detail)
+    } catch (cause) {
+      setConnected(false)
+      setConnectionDetail(cause instanceof Error ? cause.message : 'Falha de conexão.')
+    }
+  }
+  useEffect(() => { void checkConnection() }, [])
+  function created(id: string) {
+    setSessionId(id)
+    try { localStorage.setItem('vre.sessionId', id) } catch { /* Sessão continua em memória. */ }
+    setPage('engineer')
+  }
 
   const content = () => {
-    if (page === 'home') return <Home setPage={setPage} connected={connected} toggleConnection={() => setConnected((value) => !value)} />
-    if (page === 'new-session') return <NewSession setPage={setPage} />
-    if (page === 'engineer') return <Engineer setPage={setPage} applied={applied} onApply={() => setApplied(true)} />
+    if (page === 'home') return <><Home setPage={setPage} connected={connected} toggleConnection={() => void checkConnection()} />
+      <div className="live-home-actions"><p role="status">{connectionDetail}</p>
+        {sessionId && <button className="button button--primary" onClick={() => setPage('engineer')}>Retomar minha sessão local</button>}
+      </div></>
+    if (page === 'new-session') return <LiveSessionForm onCreated={created} />
+    if (page === 'engineer') return sessionId ? <LiveEngineer key={sessionId} sessionId={sessionId} /> : <LiveSessionForm onCreated={created} />
+    if (page === 'demo-engineer') return <Engineer setPage={setPage} applied={applied} onApply={() => setApplied(true)} />
     if (page === 'setup') return <SetupPage setPage={setPage} applied={applied} />
     if (page === 'history') return <History setPage={setPage} applied={applied} />
     return <Compare setPage={setPage} applied={applied} />
@@ -686,9 +713,11 @@ export default function App() {
           <button className="rail-button" aria-label="Configurações"><Icon name="settings" size={18} /></button>
         </div>
       </aside>
-      <div className="app-main">{content()}</div>
+      <div className="app-main">
+        {['demo-engineer', 'setup', 'history', 'compare'].includes(page) && <div className="demo-notice">Demonstração visual com dados fictícios. Para usar a IA local, crie uma nova sessão.</div>}
+        {content()}
+      </div>
       <button className="help-button">?</button>
     </div>
   )
 }
-

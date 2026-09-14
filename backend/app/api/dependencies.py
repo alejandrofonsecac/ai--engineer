@@ -21,6 +21,7 @@ def get_ollama_provider() -> OllamaProvider:
     return OllamaProvider()
 
 
+@lru_cache
 def get_engineer_service() -> EngineerService:
     repository = get_session_repository()
     return EngineerService(

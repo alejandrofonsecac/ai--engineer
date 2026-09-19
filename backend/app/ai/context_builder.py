@@ -3,6 +3,9 @@ from app.ai.provider import LLMMessage
 from app.ai.prompts.engineer_system_prompt import SYSTEM_PROMPT
 from app.domain.models import SessionResponse, SetupVersionResponse
 from app.services.knowledge_service import KnowledgeService
+from app.services.recommendation_guard import setup_candidates, _traction_loss
+from app.services.setup_limits import SetupLimits
+from app.config import get_settings
 
 
 class EngineerContextBuilder:
@@ -14,20 +17,23 @@ class EngineerContextBuilder:
         knowledge = self._knowledge_service.build_relevant_context(
             driver_feedback, session.track, session.car,
         )
-        setup = json.dumps(current_setup.setup, ensure_ascii=False, separators=(",", ":"))
-        # O setup normalizado típico do ACC cabe no contexto do modelo 3B. Para
-        # arquivos futuros maiores, envie apenas as categorias úteis, sem cortar JSON.
-        setup_context = (
-            current_setup.setup
-            if len(setup) <= 6000
-            else self._compact_setup(current_setup.setup)
+        candidates = setup_candidates(
+            current_setup.setup, SetupLimits(), get_settings().acc_game_version,
         )
         context = {
             "simulator": session.simulator.value, "car": session.car,
             "track": session.track, "session_type": session.session_type.value,
-            "setup_version": current_setup.version, "current_setup": setup_context,
-            "knowledge": knowledge,
+            "setup_version": current_setup.version, "available_adjustments": candidates,
+            "car_characteristics": knowledge["car_characteristics"],
+            "track_characteristics": knowledge["track_characteristics"],
+            "limits_policy": "unknown não é um intervalo. Valores atuais não revelam mínimos/máximos.",
         }
+        if _traction_loss(driver_feedback):
+            context["diagnostic_priority"] = (
+                "O piloto perde a traseira AO ACELERAR. Investigue patinagem/TC. "
+                "Considere TC para cima OU barra traseira para baixo, um teste de cada vez. "
+                "Mantenha asa nesta primeira etapa. Uma saída ruim pode reduzir a velocidade final."
+            )
         messages = [
             LLMMessage("system", SYSTEM_PROMPT),
             LLMMessage("user", "Contexto da sessão (dados): " + json.dumps(
@@ -45,25 +51,3 @@ class EngineerContextBuilder:
         messages.extend(recent)
         messages.append(LLMMessage("user", driver_feedback))
         return messages
-
-    @staticmethod
-    def _compact_setup(setup: dict) -> dict:
-        allowed = {
-            "metadata": None,
-            "tyres": {"tyreCompound", "tyrePressure"},
-            "electronics": {"tC1", "tC2", "abs", "eCUMap"},
-            "mechanical_grip": {
-                "aRBFront", "aRBRear", "wheelRate", "brakeBias", "drivetrain",
-            },
-            "aero": {"rideHeight", "splitter", "rearWing", "brakeDuct"},
-            "alignment": {"camber", "toe", "casterLF", "casterRF"},
-        }
-        compact: dict = {}
-        for category, keys in allowed.items():
-            value = setup.get(category)
-            if not isinstance(value, dict):
-                continue
-            compact[category] = value if keys is None else {
-                key: item for key, item in value.items() if key in keys
-            }
-        return compact or {"status": "Setup sem categorias reconhecidas."}

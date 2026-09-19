@@ -10,6 +10,8 @@ from pathlib import Path
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--setup", type=Path, help="Setup JSON opcional do ACC.")
+    parser.add_argument("--track", default="Nürburgring Nordschleife")
+    parser.add_argument("--expect-changes", action="store_true", help="Exige ao menos uma opção de ajuste na avaliação.")
     parser.add_argument(
         "--feedback",
         default="A traseira escapa quando acelero saindo das curvas lentas. O que devo observar?",
@@ -34,7 +36,7 @@ def main() -> None:
             session_request = {
                 "simulator": "ACC",
                 "car": setup["content"]["carName"] if setup else "Porsche 992 GT3 R",
-                "track": "Nürburgring Nordschleife",
+                "track": args.track,
                 "session_type": "Desenvolvimento de setup",
             }
             if setup:
@@ -47,8 +49,11 @@ def main() -> None:
                 "content": args.feedback,
             })
             print(f"Resposta HTTP {response.status_code}, {time.perf_counter() - start:.1f}s", flush=True)
-            print(response.json(), flush=True)
+            # Saída também funciona em terminais Windows sem suporte a setas/UTF-8.
+            print(json.dumps(response.json(), ensure_ascii=True), flush=True)
             response.raise_for_status()
+            if args.expect_changes:
+                assert response.json()["recommendation"]["changes"], "O modelo não ofereceu opções de ajuste."
             history = client.get(f"/api/v1/sessions/{session_id}/messages")
             assert len(history.json()) == 2, "Conversa não foi persistida."
             print("OK: geração real e persistência verificadas em banco temporário.", flush=True)

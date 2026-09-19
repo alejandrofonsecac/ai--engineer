@@ -18,11 +18,13 @@ salva. O chat analisa sintomas, pede informações e orienta testes de observaç
 
 O setup inicial do ACC pode ser importado em JSON ao criar uma sessão. O sistema
 preserva o arquivo original no banco e salva uma representação normalizada como
-a primeira versão. O engenheiro pode recomendar ajustes direcionais com base nos
-valores importados, explicando benefícios, efeitos negativos e um plano de teste.
-**A aplicação de ajustes de setup ainda não está disponível.** Novos valores
-numéricos permanecem bloqueados até existirem limites validados por carro e
-simulador. Importação de iRacing, exportação de setups, voz e
+a primeira versão. O engenheiro explica o ajuste, onde encontrá-lo no menu,
+ganhos, riscos e um teste por vez. Para o Mustang GT3, ACC 1.10.3 e BoP 35,
+TC1, barra traseira e asa usam limites de referência comunitários para calcular
+um clique e mostrar antes → depois. Outros casos continuam sem números-alvo.
+Consulte [cobertura e fontes dos limites](backend/app/knowledge/setup/LIMITS.md).
+**A aplicação de ajustes de setup ainda não está disponível.**
+Importação de iRacing, exportação de setups, voz e
 telemetria ainda não estão conectadas. As telas demonstrativas de setup e
 comparação não representam resultados da IA local.
 
@@ -199,6 +201,7 @@ O backend lê `backend/.env`. A configuração inicial está em
 | `VRE_DATABASE_PATH` | `data/virtual_race_engineer.db` | Banco SQLite local |
 | `VRE_OLLAMA_BASE_URL` | `http://127.0.0.1:11434` | Endereço do Ollama |
 | `VRE_OLLAMA_MODEL` | `qwen2.5:3b` | Modelo usado no chat |
+| `VRE_ACC_GAME_VERSION` | `1.10.3` no `.env.example` | Versão declarada do ACC para selecionar limites; atualize se mudar o jogo |
 | `VRE_OLLAMA_TEMPERATURE` | `0.2` | Variação das respostas |
 | `VRE_OLLAMA_NUM_CTX` | `4096` | Janela de contexto em tokens |
 | `VRE_OLLAMA_NUM_PREDICT` | `700` | Limite de tokens da resposta estruturada |

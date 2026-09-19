@@ -51,12 +51,14 @@ def test_provider_payload_and_health():
         return httpx.Response(200, json={"done": True, "message": {"content": json.dumps(REPLY)}})
     provider = OllamaProvider(Settings(_env_file=None), httpx.MockTransport(handle))
     assert run(provider.is_available())[0]
-    run(provider.chat([LLMMessage("user", "teste")]))
+    schema = {"type": "object", "properties": {"diagnosis": {"type": "string"}}}
+    run(provider.chat([LLMMessage("user", "teste")], response_schema=schema))
     payload = json.loads(requests[-1].content)
     assert payload["model"] == "qwen2.5:3b"
     assert payload["stream"] is False
     assert payload["keep_alive"] == "5m"
-    assert payload["options"] == {"temperature": 0.2, "num_ctx": 4096, "num_predict": 300}
+    assert payload["format"] == schema
+    assert payload["options"] == {"temperature": 0.2, "num_ctx": 4096, "num_predict": 700}
 
 
 @pytest.mark.parametrize("body", [
@@ -82,11 +84,21 @@ def test_missing_model_and_timeout():
         run(slow.chat([]))
 
 
-@pytest.mark.parametrize("count", [6, 1])
-def test_invalid_changes_rejected(count):
-    change = {"parameter": "wing", "previous_value": "8", "proposed_value": "9", "rationale": "teste"}
+def test_more_than_five_changes_are_rejected():
+    change = {
+        "parameter": "wing", "current_value": "8",
+        "recommended_adjustment": "reduzir", "rationale": "teste",
+        "positive_effects": ["menos arrasto"],
+        "negative_effects": ["menos estabilidade"],
+    }
     with pytest.raises(ValidationError):
-        EngineerRecommendation.model_validate({**REPLY, "changes": [change] * count})
+        EngineerRecommendation.model_validate({
+            **REPLY, "changes": [
+                {**change, "parameter": f"parameter-{index}"} for index in range(6)
+            ],
+            "trade_offs": ["compromisso"],
+            "test_plan": {"laps": 5, "focus": ["reta"]},
+        })
 
 
 @pytest.fixture
@@ -110,14 +122,19 @@ def test_api_persistence_failure_and_real_contract(client):
     class FakeProvider:
         fail = False
         changes = False
-        async def chat(self, messages):
+        async def chat(self, messages, response_schema=None):
             assert "iRacing" in messages[1].content
             assert messages[-1].content == "Traseira solta"
+            assert response_schema["type"] == "object"
             if self.fail:
                 raise LLMTimeoutError("Teste de timeout")
             if self.changes:
                 return json.dumps({**REPLY, "changes": [{
-                    "parameter": "wing", "previous_value": "8", "proposed_value": "9", "rationale": "teste",
+                    "parameter": "Asa traseira", "current_value": "8",
+                    "recommended_adjustment": "reduzir gradualmente",
+                    "rationale": "Reduzir o arrasto.",
+                    "positive_effects": ["mais velocidade final"],
+                    "negative_effects": ["menos estabilidade em alta"],
                 }], "trade_offs": ["arrasto"], "test_plan": {"laps": 5, "focus": ["reta"]}})
             return json.dumps(REPLY)
 
@@ -139,13 +156,16 @@ def test_api_persistence_failure_and_real_contract(client):
         assert client.get(url).json() == []
         provider.fail = False
         provider.changes = True
-        assert client.post(url, json={"content": "Traseira solta"}).status_code == 502
-        assert client.get(url).json() == []
+        changed = client.post(url, json={"content": "Traseira solta"})
+        assert changed.status_code == 200
+        assert "Diagnóstico" in changed.json()["engineer_message"]
         provider.changes = False
         sent = client.post(url, json={"content": "Traseira solta"})
         assert sent.status_code == 200
         assert "antes ou depois" in sent.json()["engineer_message"]
-        assert [m["role"] for m in client.get(url).json()] == ["user", "assistant"]
+        assert [m["role"] for m in client.get(url).json()] == [
+            "user", "assistant", "user", "assistant",
+        ]
         assert len(client.get(f"/api/v1/sessions/{session_id}/setup/history").json()) == 1
     finally:
         app.dependency_overrides.clear()

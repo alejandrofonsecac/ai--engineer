@@ -21,6 +21,9 @@ CREATE TABLE IF NOT EXISTS setup_versions (
     version INTEGER NOT NULL,
     setup_json TEXT NOT NULL,
     source TEXT NOT NULL,
+    original_setup_json TEXT,
+    source_file_name TEXT,
+    source_car_name TEXT,
     created_at TEXT NOT NULL,
     UNIQUE(session_id, version),
     FOREIGN KEY(session_id) REFERENCES sessions(id)
@@ -53,3 +56,15 @@ def get_connection() -> Iterator[sqlite3.Connection]:
 def initialize_database() -> None:
     with get_connection() as connection:
         connection.executescript(SCHEMA)
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(setup_versions)").fetchall()
+        }
+        migrations = {
+            "original_setup_json": "ALTER TABLE setup_versions ADD COLUMN original_setup_json TEXT",
+            "source_file_name": "ALTER TABLE setup_versions ADD COLUMN source_file_name TEXT",
+            "source_car_name": "ALTER TABLE setup_versions ADD COLUMN source_car_name TEXT",
+        }
+        for column, statement in migrations.items():
+            if column not in columns:
+                connection.execute(statement)

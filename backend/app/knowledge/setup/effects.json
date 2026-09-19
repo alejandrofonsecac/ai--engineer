@@ -6,6 +6,10 @@
       "increase": {
         "positive_effects": ["maior carga aerodinâmica traseira", "maior estabilidade em alta velocidade"],
         "negative_effects": ["maior arrasto", "menor velocidade final"]
+      },
+      "decrease": {
+        "positive_effects": ["menor arrasto", "maior velocidade final"],
+        "negative_effects": ["menor estabilidade traseira em alta velocidade"]
       }
     },
     {
@@ -14,6 +18,26 @@
       "increase": {
         "positive_effects": ["maior estabilidade traseira", "maior previsibilidade sob aceleração"],
         "negative_effects": ["maior arrasto mecânico", "menor agilidade em rotação"]
+      },
+      "decrease": {
+        "positive_effects": ["menor arrasto mecânico", "maior rotação do carro"],
+        "negative_effects": ["menor estabilidade traseira sob aceleração"]
+      }
+    },
+    {
+      "id": "traction_control",
+      "keywords": ["traseira", "tração", "aceleração", "acelerar", "saída", "patina"],
+      "increase": {
+        "positive_effects": ["menor patinagem das rodas traseiras", "entrega de potência mais controlada"],
+        "negative_effects": ["maior corte de potência", "possível perda de aceleração na saída"]
+      }
+    },
+    {
+      "id": "rear_anti_roll_bar",
+      "keywords": ["traseira", "tração", "aceleração", "acelerar", "saída", "equilíbrio"],
+      "decrease": {
+        "positive_effects": ["maior aderência mecânica traseira", "melhor tração em saídas"],
+        "negative_effects": ["menor rotação", "possível aumento de subesterço"]
       }
     },
     {
@@ -26,4 +50,3 @@
     }
   ]
 }
-

@@ -1,5 +1,5 @@
 import asyncio
-import json
+import logging
 from uuid import UUID
 from pydantic import ValidationError
 from app.ai.context_builder import EngineerContextBuilder
@@ -7,6 +7,9 @@ from app.ai.provider import LLMProvider, LLMResponseError
 from app.domain.models import ChatMessageResponse, EngineerRecommendation
 from app.repositories.session_repository import SessionRepository
 from app.services.session_service import SessionService
+from app.services.recommendation_guard import RecommendationGuard
+
+logger = logging.getLogger(__name__)
 
 
 class EngineerBusyError(RuntimeError):
@@ -32,14 +35,14 @@ class EngineerService:
             messages = self._context_builder.build(
                 session, current_setup, history, driver_feedback,
             )
-            raw_response = await self._provider.chat(messages)
+            raw_response = await self._provider.chat(
+                messages,
+                response_schema=EngineerRecommendation.model_json_schema(),
+            )
             recommendation = self._parse_recommendation(raw_response)
-            # Não há catálogo validado de limites por carro/simulador nesta etapa.
-            if recommendation.changes:
-                raise LLMResponseError(
-                    "O modelo propôs ajustes sem limites validados. "
-                    "A aplicação bloqueou a recomendação; peça uma análise do sintoma."
-                )
+            recommendation = RecommendationGuard().apply(
+                recommendation, current_setup, driver_feedback,
+            )
             engineer_message = self._to_engineer_message(recommendation)
             # Uma troca completa é atômica. Falhas não deixam mensagens órfãs.
             self._repository.add_exchange(session_id, driver_feedback, engineer_message)
@@ -51,15 +54,34 @@ class EngineerService:
     @staticmethod
     def _parse_recommendation(raw_response: str) -> EngineerRecommendation:
         try:
-            return EngineerRecommendation.model_validate(json.loads(raw_response))
+            return EngineerRecommendation.model_validate_json(raw_response)
         except (ValueError, ValidationError) as error:
+            logger.warning(
+                "Resposta estruturada inválida do LLM: %s; conteúdo=%r",
+                error,
+                raw_response[:4000],
+            )
             raise LLMResponseError(
-                "O modelo não retornou o JSON esperado. Tente uma mensagem mais curta."
+                "O modelo não conseguiu montar uma recomendação válida. Tente novamente."
             ) from error
 
     @staticmethod
     def _to_engineer_message(recommendation: EngineerRecommendation) -> str:
-        parts = [recommendation.diagnosis, recommendation.why]
+        parts = [
+            f"Diagnóstico ({recommendation.confidence} confiança): "
+            + recommendation.diagnosis
+        ]
+        if recommendation.changes:
+            changes = ["Alterações recomendadas:"]
+            for change in recommendation.changes:
+                changes.append(
+                    f"• {change.parameter} (atual: {change.current_value}): "
+                    f"{change.recommended_adjustment}. {change.rationale}\n"
+                    f"  Benefício: {'; '.join(change.positive_effects)}. "
+                    f"Possível efeito negativo: {'; '.join(change.negative_effects)}."
+                )
+            parts.append("\n".join(changes))
+        parts.append("Por quê: " + recommendation.why)
         if recommendation.trade_offs:
             parts.append("Trade-offs: " + "; ".join(recommendation.trade_offs))
         if recommendation.test_plan:

@@ -25,15 +25,32 @@ class KnowledgeService:
         if low_speed and on_throttle:
             relevant_parameters = [
                 item for item in self._effects.get("parameters", [])
-                if item["id"] in ("differential_preload", "rear_toe")
+                if item["id"] in (
+                    "differential_preload", "rear_toe", "traction_control",
+                    "rear_anti_roll_bar",
+                )
             ]
+
+        rear_instability = any(word in feedback for word in ("traseira", "sobrester", "equilíbrio"))
+        top_speed = any(word in feedback for word in ("velocidade final", "final de reta", "km/h"))
+        decision_guidance = {}
+        if rear_instability and on_throttle:
+            decision_guidance = {
+                "prioritize": ["increase traction_control", "decrease rear_anti_roll_bar"],
+                "avoid_in_same_cycle": ["decrease rear_wing", "decrease rear_toe"],
+                "reason": (
+                    "Reducing rear wing or rear toe may help top speed but can worsen "
+                    "the reported on-throttle rear instability."
+                ) if top_speed else "Prioritize rear traction before aerodynamic changes.",
+            }
 
         track_key = "Nordschleife" if track in ("Nordschleife", "Nürburgring Nordschleife") else track
         return {
             "status": "Base inicial ilustrativa; não contém limites validados por simulador.",
             "track_characteristics": self._tracks.get(track_key, {}),
             "car_characteristics": self._cars.get(car, {}),
-            "relevant_setup_knowledge": relevant_parameters[:2],
+            "relevant_setup_knowledge": relevant_parameters[:4],
+            "decision_guidance": decision_guidance,
         }
 
     @staticmethod

@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from 'react'
-import { api, ChatMessage, Session, SessionInput } from './api'
+import { api, ChatMessage, Session, SessionInput, SetupFileInput } from './api'
 
 export function LiveSessionForm({ onCreated }: { onCreated: (id: string) => void }) {
   const [form, setForm] = useState<SessionInput>({
@@ -7,14 +7,49 @@ export function LiveSessionForm({ onCreated }: { onCreated: (id: string) => void
     session_type: 'Desenvolvimento de setup',
   })
   const [busy, setBusy] = useState(false)
+  const [setupFile, setSetupFile] = useState<SetupFileInput | null>(null)
+  const [readingSetup, setReadingSetup] = useState(false)
   const [error, setError] = useState('')
+  async function selectSetup(file: File | undefined) {
+    setError('')
+    setSetupFile(null)
+    if (!file) return
+    if (form.simulator !== 'ACC') {
+      setError('A importação de setup está disponível apenas para ACC nesta etapa.')
+      return
+    }
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      setError('Selecione um arquivo de setup do ACC no formato JSON.')
+      return
+    }
+    if (file.size > 1_000_000) {
+      setError('O arquivo de setup excede o limite de 1 MB.')
+      return
+    }
+    setReadingSetup(true)
+    try {
+      const parsed: unknown = JSON.parse(await file.text())
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('O conteúdo do arquivo deve ser um objeto JSON.')
+      }
+      const content = parsed as Record<string, unknown>
+      setSetupFile({ filename: file.name, content })
+      if (typeof content.carName === 'string' && content.carName.trim()) {
+        setForm(current => ({ ...current, car: content.carName as string }))
+      }
+    } catch (cause) {
+      setError(cause instanceof SyntaxError
+        ? 'O arquivo selecionado não contém um JSON válido.'
+        : cause instanceof Error ? cause.message : 'Não foi possível ler o setup.')
+    } finally { setReadingSetup(false) }
+  }
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (busy) return
     setBusy(true)
     setError('')
     try {
-      const session = await api.create(form)
+      const session = await api.create({ ...form, ...(setupFile ? { setup_file: setupFile } : {}) })
       onCreated(session.id)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível criar a sessão.')
@@ -31,7 +66,11 @@ export function LiveSessionForm({ onCreated }: { onCreated: (id: string) => void
         <div className="form-grid">
           <div className="field"><label htmlFor="simulator">Simulador</label>
             <select id="simulator" value={form.simulator} disabled={busy}
-              onChange={e => setForm({ ...form, simulator: e.target.value as SessionInput['simulator'] })}>
+              onChange={e => {
+                setForm({ ...form, simulator: e.target.value as SessionInput['simulator'] })
+                setSetupFile(null)
+                setError('')
+              }}>
               <option value="ACC">Assetto Corsa Competizione</option><option value="iRacing">iRacing</option>
             </select>
           </div>
@@ -50,13 +89,30 @@ export function LiveSessionForm({ onCreated }: { onCreated: (id: string) => void
             {['Treino', 'Hotlap', 'Classificação', 'Corrida', 'Desenvolvimento de setup'].map(type => <option key={type}>{type}</option>)}
           </select>
         </div>
-        <div className="connection">
-          <div><strong>Nenhum setup carregado</strong>
-            <p>A importação de ACC/iRacing ainda está em desenvolvimento. Nesta etapa, o engenheiro analisa seu relato e orienta observações, sem alterar valores.</p>
+        <div className="form-block">
+          <div className="upload-heading">
+            <label htmlFor="setupFile">Setup inicial</label>
+            <span>Opcional, mas recomendado</span>
           </div>
+          <label className={`upload-zone ${setupFile ? 'upload-zone--loaded' : ''}`}>
+            <input id="setupFile" type="file" accept="application/json,.json"
+              disabled={busy || readingSetup || form.simulator !== 'ACC'}
+              onChange={e => {
+                void selectSetup(e.target.files?.[0])
+                e.currentTarget.value = ''
+              }} />
+            <span className="upload-zone__icon">{setupFile ? '✓' : '↑'}</span>
+            <strong>{readingSetup ? 'Lendo setup...' : setupFile ? 'Setup pronto para importar' : 'Selecione o setup inicial'}</strong>
+            <p>{setupFile?.filename ?? (form.simulator === 'ACC'
+              ? 'Arquivo JSON exportado pelo Assetto Corsa Competizione'
+              : 'A importação de iRacing ainda não está disponível')}</p>
+            <small>O arquivo original será preservado como a versão 1 da sessão.</small>
+          </label>
+          {setupFile && <button type="button" className="text-button text-button--standalone"
+            disabled={busy} onClick={() => setSetupFile(null)}>Remover setup</button>}
         </div>
         {error && <p className="api-error" role="alert">{error}</p>}
-        <button className="button button--primary button--start" disabled={busy}>
+        <button className="button button--primary button--start" disabled={busy || readingSetup}>
           {busy ? 'Criando sessão...' : 'Iniciar sessão de engenharia'}
         </button>
       </form>
@@ -145,10 +201,11 @@ export function LiveEngineer({ sessionId }: { sessionId: string }) {
           <strong>{session?.simulator}</strong><p>{session?.car}</p><p>{session?.track}</p>
         </div></div>
         <p className="section-label">Setup atual</p>
-        <p className="page-description">Não importado</p>
+        <p className="page-description">{session?.has_setup
+          ? `Setup importado · versão ${session.current_setup_version}`
+          : 'Não importado'}</p>
         <p className="form-footnote">Análise de sintomas e planos de observação. Alterações de valores aguardam validação dos parâmetros do simulador.</p>
       </aside>
     </main>
   )
 }
-

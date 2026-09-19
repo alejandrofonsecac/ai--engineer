@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     ollama_timeout_seconds: float = Field(default=180, gt=0, le=600)
     ollama_temperature: float = Field(default=0.2, ge=0, le=1)
     ollama_num_ctx: int = Field(default=4096, ge=2048, le=32768)
-    ollama_num_predict: int = Field(default=300, ge=64, le=2048)
+    ollama_num_predict: int = Field(default=700, ge=64, le=2048)
     ollama_keep_alive: str = Field(default="5m", pattern=r"^(0|[0-9]+[smh])$")
     model_config = SettingsConfigDict(
         env_file=BACKEND_ROOT / ".env", env_file_encoding="utf-8",

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Any
 import httpx
 from app.ai.provider import (
     LLMMessage, LLMResponseError, LLMTimeoutError, LLMUnavailableError,
@@ -37,9 +38,14 @@ class OllamaProvider:
             return False, f"Modelo ausente. Execute: ollama pull {self.model}"
         return True, f"Ollama disponível com {self.model}."
 
-    async def chat(self, messages: Sequence[LLMMessage]) -> str:
+    async def chat(
+        self,
+        messages: Sequence[LLMMessage],
+        response_schema: dict[str, Any] | None = None,
+    ) -> str:
         payload = {
-            "model": self.model, "stream": False, "format": "json",
+            "model": self.model, "stream": False,
+            "format": response_schema or "json",
             "keep_alive": self.settings.ollama_keep_alive,
             "options": {
                 "temperature": self.settings.ollama_temperature,
@@ -70,7 +76,9 @@ class OllamaProvider:
             data = response.json()
             if data.get("done_reason") == "length" or data.get("done") is False:
                 raise LLMResponseError(
-                    "Resposta truncada. Aumente VRE_OLLAMA_NUM_PREDICT para 450 e tente novamente."
+                    "Resposta truncada no limite de "
+                    f"{self.settings.ollama_num_predict} tokens. "
+                    "Aumente VRE_OLLAMA_NUM_PREDICT e tente novamente."
                 )
             content = data["message"]["content"]
             if not isinstance(content, str) or not content.strip():

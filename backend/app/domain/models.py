@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Simulator(StrEnum):
@@ -20,10 +20,19 @@ class SessionType(StrEnum):
 
 
 class SetupChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     parameter: str = Field(min_length=1, max_length=100)
-    previous_value: str = Field(min_length=1, max_length=80)
-    proposed_value: str = Field(min_length=1, max_length=80)
+    current_value: str = Field(min_length=1, max_length=100)
+    recommended_adjustment: str = Field(min_length=1, max_length=160)
     rationale: str = Field(min_length=1, max_length=500)
+    positive_effects: list[str] = Field(min_length=1, max_length=3)
+    negative_effects: list[str] = Field(min_length=1, max_length=3)
+
+    @field_validator("current_value", "recommended_adjustment", mode="before")
+    @classmethod
+    def stringify_values(cls, value: Any) -> Any:
+        return str(value) if isinstance(value, (int, float)) else value
 
 
 class TestPlan(BaseModel):
@@ -32,6 +41,8 @@ class TestPlan(BaseModel):
 
 
 class EngineerRecommendation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     diagnosis: str = Field(min_length=1, max_length=1000)
     confidence: str = Field(pattern="^(baixa|média|alta)$")
     changes: list[SetupChange] = Field(default_factory=list, max_length=5)
@@ -39,6 +50,13 @@ class EngineerRecommendation(BaseModel):
     trade_offs: list[str] = Field(default_factory=list, max_length=5)
     test_plan: TestPlan | None = None
     clarification_question: str | None = Field(default=None, max_length=500)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"media": "média", "MEDIA": "média"}.get(value, value.lower())
+        return value
 
     @model_validator(mode="after")
     def validate_recommendation(self) -> "EngineerRecommendation":
@@ -49,12 +67,32 @@ class EngineerRecommendation(BaseModel):
             raise ValueError("Parâmetros duplicados na recomendação.")
         return self
 
+class SetupFileRequest(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
+    content: dict[str, Any]
+
+    @field_validator("filename")
+    @classmethod
+    def require_json_file(cls, filename: str) -> str:
+        if not filename.lower().endswith(".json"):
+            raise ValueError("O setup do ACC deve ser um arquivo JSON.")
+        return filename
+
+    @model_validator(mode="after")
+    def limit_file_size(self) -> "SetupFileRequest":
+        import json
+
+        if len(json.dumps(self.content, ensure_ascii=False).encode("utf-8")) > 1_000_000:
+            raise ValueError("O arquivo de setup excede o limite de 1 MB.")
+        return self
+
+
 class CreateSessionRequest(BaseModel):
     simulator: Simulator
     car: str = Field(min_length=2, max_length=120)
     track: str = Field(min_length=2, max_length=120)
     session_type: SessionType
-    normalized_setup: dict[str, Any] | None = None
+    setup_file: SetupFileRequest | None = None
 
 
 class SessionResponse(BaseModel):
@@ -64,6 +102,7 @@ class SessionResponse(BaseModel):
     track: str
     session_type: SessionType
     current_setup_version: int
+    has_setup: bool = False
     created_at: datetime
 
 
@@ -72,6 +111,8 @@ class SetupVersionResponse(BaseModel):
     setup: dict[str, Any]
     created_at: datetime
     source: str
+    source_file_name: str | None = None
+    source_car_name: str | None = None
 
 
 class ChatMessageRequest(BaseModel):

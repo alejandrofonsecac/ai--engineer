@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class LLMUnavailableError(RuntimeError):
@@ -25,4 +25,8 @@ class LLMProvider(Protocol):
     @property
     def model(self) -> str: ...
     async def is_available(self) -> tuple[bool, str]: ...
-    async def chat(self, messages: Sequence[LLMMessage]) -> str: ...
+    async def chat(
+        self,
+        messages: Sequence[LLMMessage],
+        response_schema: dict[str, Any] | None = None,
+    ) -> str: ...

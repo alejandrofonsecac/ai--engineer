@@ -15,10 +15,13 @@ class EngineerContextBuilder:
             driver_feedback, session.track, session.car,
         )
         setup = json.dumps(current_setup.setup, ensure_ascii=False, separators=(",", ":"))
-        # Não truncar JSON de setup: omitir explicitamente se ele exceder o orçamento.
-        setup_context = current_setup.setup if len(setup) <= 1600 else {
-            "status": "Setup omitido por tamanho; solicitar apenas os parâmetros relevantes."
-        }
+        # O setup normalizado típico do ACC cabe no contexto do modelo 3B. Para
+        # arquivos futuros maiores, envie apenas as categorias úteis, sem cortar JSON.
+        setup_context = (
+            current_setup.setup
+            if len(setup) <= 6000
+            else self._compact_setup(current_setup.setup)
+        )
         context = {
             "simulator": session.simulator.value, "car": session.car,
             "track": session.track, "session_type": session.session_type.value,
@@ -42,3 +45,25 @@ class EngineerContextBuilder:
         messages.extend(recent)
         messages.append(LLMMessage("user", driver_feedback))
         return messages
+
+    @staticmethod
+    def _compact_setup(setup: dict) -> dict:
+        allowed = {
+            "metadata": None,
+            "tyres": {"tyreCompound", "tyrePressure"},
+            "electronics": {"tC1", "tC2", "abs", "eCUMap"},
+            "mechanical_grip": {
+                "aRBFront", "aRBRear", "wheelRate", "brakeBias", "drivetrain",
+            },
+            "aero": {"rideHeight", "splitter", "rearWing", "brakeDuct"},
+            "alignment": {"camber", "toe", "casterLF", "casterRF"},
+        }
+        compact: dict = {}
+        for category, keys in allowed.items():
+            value = setup.get(category)
+            if not isinstance(value, dict):
+                continue
+            compact[category] = value if keys is None else {
+                key: item for key, item in value.items() if key in keys
+            }
+        return compact or {"status": "Setup sem categorias reconhecidas."}

@@ -6,13 +6,14 @@ O repositório possui frontend React e backend FastAPI em implementação.
 O fluxo de chat local usa Ollama com qwen2.5:3b, conforme os testes de desempenho
 do usuário no i3-10100F com RX 6600. Mantenha cada entrega no escopo solicitado.
 
-Configuração inicial: temperatura 0.2, contexto 4096, saída 300 tokens,
+Configuração inicial: temperatura 0.2, contexto 4096, saída 700 tokens,
 keep_alive 5m e stream=False. Leia backend/README.md para execução e diagnóstico.
 O prompt fica no backend; os pesos do modelo são gerenciados pelo Ollama fora
 do repositório. O frontend comunica-se apenas com FastAPI.
 
-O chat real permite análise de sintomas e testes de observação. Alterações de
-valores ficam bloqueadas até existirem parsers e limites validados por carro e
+O chat real permite análise de sintomas, recomendações direcionais baseadas no
+setup importado e testes de observação. Valores numéricos novos e aplicação de
+alterações ficam bloqueados até existirem limites validados por carro e
 simulador. Telas demonstrativas não representam recomendações da IA local.
 
 Este é o documento canônico do projeto. Tanto `AGENTS.md` quanto `CLAUDE.md`

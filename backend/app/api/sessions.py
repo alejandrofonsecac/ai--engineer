@@ -13,7 +13,7 @@ from app.domain.models import (
     StoredMessageResponse,
 )
 from app.services.engineer_service import EngineerService, EngineerBusyError
-from app.services.session_service import SessionNotFoundError, SessionService
+from app.services.session_service import SessionNotFoundError, SessionService, SetupImportError
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -23,7 +23,10 @@ def create_session(
     request: CreateSessionRequest,
     service: SessionService = Depends(get_session_service),
 ) -> SessionResponse:
-    return service.create(request)
+    try:
+        return service.create(request)
+    except SetupImportError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
 
 @router.get("/{session_id}", response_model=SessionResponse)

@@ -4,6 +4,7 @@ from uuid import UUID
 
 from app.database.sqlite import get_connection
 from app.domain.models import CreateSessionRequest, SessionResponse, SetupVersionResponse
+from app.setup_parsers import ParsedSetup
 
 
 def _now() -> str:
@@ -11,9 +12,14 @@ def _now() -> str:
 
 
 class SessionRepository:
-    def create(self, session_id: UUID, request: CreateSessionRequest) -> SessionResponse:
+    def create(
+        self,
+        session_id: UUID,
+        request: CreateSessionRequest,
+        parsed_setup: ParsedSetup | None = None,
+    ) -> SessionResponse:
         created_at = _now()
-        initial_setup = request.normalized_setup or {}
+        initial_setup = parsed_setup.normalized if parsed_setup else {}
         with get_connection() as connection:
             connection.execute(
                 """
@@ -32,13 +38,19 @@ class SessionRepository:
             )
             connection.execute(
                 """
-                INSERT INTO setup_versions (session_id, version, setup_json, source, created_at)
-                VALUES (?, 1, ?, ?, ?)
+                INSERT INTO setup_versions (
+                    session_id, version, setup_json, source, original_setup_json,
+                    source_file_name, source_car_name, created_at
+                )
+                VALUES (?, 1, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(session_id),
                     json.dumps(initial_setup, ensure_ascii=False),
-                    "importado" if request.normalized_setup else "vazio",
+                    "importado" if parsed_setup else "vazio",
+                    json.dumps(parsed_setup.original, ensure_ascii=False) if parsed_setup else None,
+                    request.setup_file.filename if request.setup_file else None,
+                    parsed_setup.source_car_name if parsed_setup else None,
                     created_at,
                 ),
             )
@@ -49,13 +61,23 @@ class SessionRepository:
             track=request.track,
             session_type=request.session_type,
             current_setup_version=1,
+            has_setup=parsed_setup is not None,
             created_at=datetime.fromisoformat(created_at),
         )
 
     def get(self, session_id: UUID) -> SessionResponse | None:
         with get_connection() as connection:
             row = connection.execute(
-                "SELECT * FROM sessions WHERE id = ?", (str(session_id),)
+                """
+                SELECT sessions.*,
+                    EXISTS(
+                        SELECT 1 FROM setup_versions
+                        WHERE setup_versions.session_id = sessions.id
+                          AND setup_versions.source != 'vazio'
+                    ) AS has_setup
+                FROM sessions WHERE sessions.id = ?
+                """,
+                (str(session_id),),
             ).fetchone()
         if row is None:
             return None
@@ -66,6 +88,7 @@ class SessionRepository:
             track=row["track"],
             session_type=row["session_type"],
             current_setup_version=row["current_setup_version"],
+            has_setup=bool(row["has_setup"]),
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -73,7 +96,7 @@ class SessionRepository:
         with get_connection() as connection:
             row = connection.execute(
                 """
-                SELECT version, setup_json, source, created_at
+                SELECT version, setup_json, source, source_file_name, source_car_name, created_at
                 FROM setup_versions
                 WHERE session_id = ?
                 ORDER BY version DESC
@@ -87,6 +110,8 @@ class SessionRepository:
             version=row["version"],
             setup=json.loads(row["setup_json"]),
             source=row["source"],
+            source_file_name=row["source_file_name"],
+            source_car_name=row["source_car_name"],
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
@@ -94,7 +119,7 @@ class SessionRepository:
         with get_connection() as connection:
             rows = connection.execute(
                 """
-                SELECT version, setup_json, source, created_at
+                SELECT version, setup_json, source, source_file_name, source_car_name, created_at
                 FROM setup_versions
                 WHERE session_id = ?
                 ORDER BY version ASC
@@ -106,6 +131,8 @@ class SessionRepository:
                 version=row["version"],
                 setup=json.loads(row["setup_json"]),
                 source=row["source"],
+                source_file_name=row["source_file_name"],
+                source_car_name=row["source_car_name"],
                 created_at=datetime.fromisoformat(row["created_at"]),
             )
             for row in rows

@@ -21,6 +21,23 @@ REPLY = {
     "clarification_question": "A traseira escapa antes ou depois de acelerar?",
 }
 
+ACC_SETUP = {
+    "carName": "ford_mustang_gt3",
+    "basicSetup": {
+        "tyres": {"tyreCompound": 0, "tyrePressure": [48, 48, 55, 55]},
+        "alignment": {"camber": [0, 0, 0, 0], "toe": [9, 9, 15, 15]},
+        "electronics": {"tC1": 3, "tC2": 3, "abs": 2},
+        "strategy": {"fuel": 60, "nPitStops": 0},
+    },
+    "advancedSetup": {
+        "mechanicalBalance": {"aRBFront": 5, "aRBRear": 2},
+        "dampers": {"bumpSlow": [5, 5, 5, 5]},
+        "aeroBalance": {"rideHeight": [0, 11, 10, 18], "rearWing": 6},
+        "drivetrain": {"preload": 6},
+    },
+    "trackBopType": 35,
+}
+
 def run(coroutine):
     return asyncio.run(coroutine)
 
@@ -133,3 +150,48 @@ def test_api_persistence_failure_and_real_contract(client):
     finally:
         app.dependency_overrides.clear()
 
+
+def test_acc_setup_is_parsed_and_persisted_with_session(client):
+    response = client.post("/api/v1/sessions", json={
+        "simulator": "ACC",
+        "car": "Ford Mustang GT3",
+        "track": "Barcelona",
+        "session_type": "Desenvolvimento de setup",
+        "setup_file": {"filename": "teste.json", "content": ACC_SETUP},
+    })
+
+    assert response.status_code == 201
+    assert response.json()["has_setup"] is True
+    session_id = response.json()["id"]
+    history = client.get(f"/api/v1/sessions/{session_id}/setup/history").json()
+    assert len(history) == 1
+    assert history[0]["source"] == "importado"
+    assert history[0]["source_file_name"] == "teste.json"
+    assert history[0]["source_car_name"] == "ford_mustang_gt3"
+    assert history[0]["setup"]["aero"]["rearWing"] == 6
+    assert history[0]["setup"]["mechanical_grip"]["drivetrain"]["preload"] == 6
+
+    from app.database.sqlite import get_connection
+    with get_connection() as connection:
+        stored = connection.execute(
+            "SELECT original_setup_json FROM setup_versions WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+    assert json.loads(stored["original_setup_json"]) == ACC_SETUP
+
+
+def test_invalid_or_unsupported_setup_is_rejected_without_creating_session(client):
+    invalid = client.post("/api/v1/sessions", json={
+        "simulator": "ACC", "car": "Ford Mustang GT3", "track": "Barcelona",
+        "session_type": "Treino",
+        "setup_file": {"filename": "incompleto.json", "content": {"carName": "ford_mustang_gt3"}},
+    })
+    assert invalid.status_code == 422
+    assert "basicSetup" in invalid.json()["detail"]
+
+    unsupported = client.post("/api/v1/sessions", json={
+        "simulator": "iRacing", "car": "BMW M4 GT3", "track": "Monza",
+        "session_type": "Treino",
+        "setup_file": {"filename": "teste.json", "content": ACC_SETUP},
+    })
+    assert unsupported.status_code == 422

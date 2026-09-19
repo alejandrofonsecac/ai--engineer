@@ -21,7 +21,7 @@ outro modelo.
 - `app/ai/provider.py`: interface e erros independentes de fornecedor.
 - `app/ai/ollama_provider.py`: somente transporte HTTP para Ollama.
 - `app/services/engineer_service.py`: coordenação e validação da conversa.
-- `app/knowledge/`: base ilustrativa inicial, ainda sem catálogo de limites validado.
+- `app/knowledge/`: conhecimento e catálogo inicial de limites com fontes em `setup/LIMITS.md`.
 - `backend/data/virtual_race_engineer.db`: banco local criado na primeira inicialização.
 
 Não é necessário criar um Modelfile: os parâmetros são enviados em cada chamada
@@ -85,12 +85,14 @@ O modelo de 3B foi escolhido pelos testes relatados pelo usuário: cerca de
 A primeira resposta pode levar mais tempo para carregar o modelo e avaliar o prompt.
 
 O histórico enviado ao LLM é curto: até quatro mensagens anteriores, limitadas
-a 1.600 caracteres. Setup excessivamente grande é omitido explicitamente.
+a 1.600 caracteres. O backend extrai do setup somente os parâmetros suportados
+com valores inteiros válidos e envia as opções e limites disponíveis ao modelo.
 A interface envia até 1.200 caracteres por mensagem. Há uma geração por vez
 nesta instância do backend; mantenha um único processo/worker no desenvolvimento.
 
-O limite de 700 tokens comporta diagnóstico, efeitos positivos e negativos e o
-plano de teste. Reduzi-lo pode truncar o JSON estruturado.
+O limite de saída é 700 tokens. O modelo retorna um diagnóstico curto e escolhas
+de parâmetro/direção; valores, cliques, efeitos e plano de teste são montados no
+backend. Isso reduz a chance de truncamento e de valores inventados.
 Para liberar memória após cada resposta, use `VRE_OLLAMA_KEEP_ALIVE=0`
 (a próxima chamada precisará recarregar o modelo). Reinicie o backend após editar
 o arquivo .env. Um timeout HTTP não garante que o Ollama interrompeu a geração.
@@ -130,10 +132,14 @@ antes de reenviar, pois o backend pode ainda concluir a solicitação.
 ## Limites desta etapa
 
 O chat real analisa sintomas, pede informações e orienta observações.
-O backend conserva o contrato estruturado e permite recomendações direcionais
-com até cinco mudanças, valor atual, benefício e possível efeito negativo.
-Valores numéricos novos e aplicação automática continuam bloqueados enquanto
-não houver limites validados por carro/simulador. O setup JSON inicial do ACC pode ser importado ao
+O contrato admite até cinco mudanças; o fluxo atual apresenta no máximo duas
+opções para testes separados. TC1, barra traseira e asa do Mustang GT3 podem
+receber um clique calculado com o catálogo de referência para ACC 1.10.3 e BoP 35.
+Configure `VRE_ACC_GAME_VERSION=1.10.3` no `.env` e reinicie o backend.
+Os intervalos são comunitários, não medidos nesta máquina dentro do simulador;
+veja [cobertura, fontes e inclusão de parâmetros](app/knowledge/setup/LIMITS.md).
+Sem perfil correspondente, a resposta identifica a falta de limites. A aplicação
+automática continua indisponível. O setup JSON inicial do ACC pode ser importado ao
 criar a sessão. O arquivo original e uma representação normalizada ficam
 preservados no SQLite como a versão 1. Importação de iRacing,
 aplicação/exportação de alterações, voz e telemetria ainda não estão conectadas.

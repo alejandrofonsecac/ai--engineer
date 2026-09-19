@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -28,6 +28,8 @@ class SetupChange(BaseModel):
     rationale: str = Field(min_length=1, max_length=500)
     positive_effects: list[str] = Field(min_length=1, max_length=3)
     negative_effects: list[str] = Field(min_length=1, max_length=3)
+    menu: str | None = None
+    limits_note: str | None = None
 
     @field_validator("current_value", "recommended_adjustment", mode="before")
     @classmethod
@@ -66,6 +68,26 @@ class EngineerRecommendation(BaseModel):
         if len(names) != len(set(names)):
             raise ValueError("Parâmetros duplicados na recomendação.")
         return self
+
+
+class AdjustmentChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    # A lista válida vem de available_adjustments. Não restringir por enum aqui:
+    # isso faria uma pergunta sobre um parâmetro novo falhar antes do guard.
+    parameter: str = Field(min_length=1, max_length=80)
+    direction: str = Field(min_length=1, max_length=20)
+    # O guard permite somente 1 ou 2 cliques quando existir limite verificado.
+    clicks: int = Field(default=1, ge=1, le=10)
+
+
+class RecommendationDraft(BaseModel):
+    """O modelo escolhe direção e intensidade; o backend valida o alvo e os efeitos."""
+
+    model_config = ConfigDict(extra="forbid")
+    diagnosis: str = Field(min_length=1, max_length=1000)
+    confidence: str = Field(default="baixa", min_length=1, max_length=30)
+    choices: list[AdjustmentChoice] = Field(default_factory=list, max_length=5)
+    clarification_question: str | None = Field(default=None, max_length=500)
 
 class SetupFileRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=255)

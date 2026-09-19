@@ -3,8 +3,8 @@ import logging
 from uuid import UUID
 from pydantic import ValidationError
 from app.ai.context_builder import EngineerContextBuilder
-from app.ai.provider import LLMProvider, LLMResponseError
-from app.domain.models import ChatMessageResponse, EngineerRecommendation
+from app.ai.provider import LLMMessage, LLMProvider, LLMResponseError
+from app.domain.models import ChatMessageResponse, EngineerRecommendation, RecommendationDraft
 from app.repositories.session_repository import SessionRepository
 from app.services.session_service import SessionService
 from app.services.recommendation_guard import RecommendationGuard
@@ -37,9 +37,26 @@ class EngineerService:
             )
             raw_response = await self._provider.chat(
                 messages,
-                response_schema=EngineerRecommendation.model_json_schema(),
+                response_schema=RecommendationDraft.model_json_schema(),
             )
-            recommendation = self._parse_recommendation(raw_response)
+            try:
+                recommendation = self._parse_recommendation(raw_response)
+            except LLMResponseError:
+                # Modelos locais pequenos ocasionalmente escapam do JSON/schema.
+                # Uma tentativa curta de correção evita expor essa falha ao piloto.
+                retry_messages = [
+                    *messages,
+                    LLMMessage(
+                        "user",
+                        "A resposta anterior não seguiu o schema. Responda somente um JSON "
+                        "válido com diagnosis, confidence, choices e clarification_question.",
+                    ),
+                ]
+                retry_response = await self._provider.chat(
+                    retry_messages,
+                    response_schema=RecommendationDraft.model_json_schema(),
+                )
+                recommendation = self._parse_recommendation(retry_response)
             recommendation = RecommendationGuard().apply(
                 recommendation, current_setup, driver_feedback,
             )
@@ -52,14 +69,13 @@ class EngineerService:
             )
 
     @staticmethod
-    def _parse_recommendation(raw_response: str) -> EngineerRecommendation:
+    def _parse_recommendation(raw_response: str) -> RecommendationDraft:
         try:
-            return EngineerRecommendation.model_validate_json(raw_response)
+            return RecommendationDraft.model_validate_json(raw_response)
         except (ValueError, ValidationError) as error:
             logger.warning(
-                "Resposta estruturada inválida do LLM: %s; conteúdo=%r",
-                error,
-                raw_response[:4000],
+                "Resposta estruturada inválida do LLM: %s",
+                type(error).__name__,
             )
             raise LLMResponseError(
                 "O modelo não conseguiu montar uma recomendação válida. Tente novamente."
@@ -72,21 +88,22 @@ class EngineerService:
             + recommendation.diagnosis
         ]
         if recommendation.changes:
-            changes = ["Alterações recomendadas:"]
-            for change in recommendation.changes:
+            changes = ["O que testar — uma alteração por vez:"]
+            for index, change in enumerate(recommendation.changes, start=1):
                 changes.append(
-                    f"• {change.parameter} (atual: {change.current_value}): "
-                    f"{change.recommended_adjustment}. {change.rationale}\n"
-                    f"  Benefício: {'; '.join(change.positive_effects)}. "
-                    f"Possível efeito negativo: {'; '.join(change.negative_effects)}."
+                    f"{index}. {change.recommended_adjustment}.\n"
+                    f"Onde: {change.menu}. Valor lido: {change.current_value}.\n"
+                    f"Ganho esperado: {'; '.join(change.positive_effects)}.\n"
+                    f"Pode piorar: {'; '.join(change.negative_effects)}.\n"
+                    f"{change.limits_note or ''}"
                 )
-            parts.append("\n".join(changes))
-        parts.append("Por quê: " + recommendation.why)
+            parts.append("\n\n".join(changes))
+        parts.append(recommendation.why)
         if recommendation.trade_offs:
-            parts.append("Trade-offs: " + "; ".join(recommendation.trade_offs))
+            parts.append("\n".join(recommendation.trade_offs))
         if recommendation.test_plan:
             parts.append(
-                f"Teste: {recommendation.test_plan.laps} voltas. "
+                f"Teste: {recommendation.test_plan.laps} voltas por ajuste, depois de aquecer os pneus. "
                 + "; ".join(recommendation.test_plan.focus)
             )
         if recommendation.clarification_question:

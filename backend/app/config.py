@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     database_path: Path = BACKEND_ROOT / "data/virtual_race_engineer.db"
     ollama_base_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen2.5:3b"
+    acc_game_version: str | None = None
     ollama_timeout_seconds: float = Field(default=180, gt=0, le=600)
     ollama_temperature: float = Field(default=0.2, ge=0, le=1)
     ollama_num_ctx: int = Field(default=4096, ge=2048, le=32768)

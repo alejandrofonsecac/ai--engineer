@@ -11,10 +11,13 @@ keep_alive 5m e stream=False. Leia backend/README.md para execução e diagnóst
 O prompt fica no backend; os pesos do modelo são gerenciados pelo Ollama fora
 do repositório. O frontend comunica-se apenas com FastAPI.
 
-O chat real permite análise de sintomas, recomendações direcionais baseadas no
-setup importado e testes de observação. Valores numéricos novos e aplicação de
-alterações ficam bloqueados até existirem limites validados por carro e
-simulador. Telas demonstrativas não representam recomendações da IA local.
+O chat interpreta sintomas e escolhe opções de ajuste do setup importado. O
+backend calcula um clique somente com perfil correspondente de carro, versão e
+BoP. O catálogo inicial cobre TC1, barra traseira e asa do Mustang GT3 no ACC
+1.10.3 / BoP 35, usando fontes comunitárias identificadas em
+backend/app/knowledge/setup/LIMITS.md; não foi conferido dentro do jogo local.
+Sem limites conhecidos, os ajustes continuam direcionais. A aplicação automática
+permanece indisponível e telas demonstrativas não representam a IA local.
 
 Este é o documento canônico do projeto. Tanto `AGENTS.md` quanto `CLAUDE.md`
 apontam para ele. Mantenha as instruções desses arquivos alinhadas caso este

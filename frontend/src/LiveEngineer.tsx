@@ -204,7 +204,7 @@ export function LiveEngineer({ sessionId }: { sessionId: string }) {
         <p className="page-description">{session?.has_setup
           ? `Setup importado · versão ${session.current_setup_version}`
           : 'Não importado'}</p>
-        <p className="form-footnote">Análise de sintomas e planos de observação. Alterações de valores aguardam validação dos parâmetros do simulador.</p>
+        <p className="form-footnote">Teste um ajuste por vez. Cliques só são sugeridos quando há limites de referência para o carro. O setup salvo permanece preservado.</p>
       </aside>
     </main>
   )

@@ -1,0 +1,37 @@
+{
+  "profiles": [
+    {
+      "car": "ford_mustang_gt3",
+      "game_version": "1.10.3",
+      "track_bop_type": 35,
+      "parameter": "traction_control",
+      "raw_min": 0,
+      "raw_max": 11,
+      "raw_step": 1,
+      "display_offset": 0,
+      "source": "https://github.com/SeriousOldMan/Simulator-Controller/blob/2dc2f8e724eb3d876f5c7b00cbc7a7e727feee6c/Resources/Garage/Definitions/Cars/Assetto%20Corsa%20Competizione.Ford%20Mustang%20GT3.ini"
+    },
+    {
+      "car": "ford_mustang_gt3",
+      "game_version": "1.10.3",
+      "track_bop_type": 35,
+      "parameter": "rear_anti_roll_bar",
+      "raw_min": 0,
+      "raw_max": 9,
+      "raw_step": 1,
+      "display_offset": 0,
+      "source": "https://github.com/SeriousOldMan/Simulator-Controller/blob/2dc2f8e724eb3d876f5c7b00cbc7a7e727feee6c/Resources/Garage/Definitions/Cars/Assetto%20Corsa%20Competizione.Ford%20Mustang%20GT3.ini"
+    },
+    {
+      "car": "ford_mustang_gt3",
+      "game_version": "1.10.3",
+      "track_bop_type": 35,
+      "parameter": "rear_wing",
+      "raw_min": 0,
+      "raw_max": 8,
+      "raw_step": 1,
+      "display_offset": 0,
+      "source": "https://github.com/SeriousOldMan/Simulator-Controller/blob/2dc2f8e724eb3d876f5c7b00cbc7a7e727feee6c/Resources/Garage/Definitions/Cars/Assetto%20Corsa%20Competizione.Ford%20Mustang%20GT3.ini"
+    }
+  ]
+}

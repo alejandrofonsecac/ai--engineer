@@ -20,6 +20,10 @@ REPLY = {
     "trade_offs": [], "test_plan": None,
     "clarification_question": "A traseira escapa antes ou depois de acelerar?",
 }
+DRAFT_REPLY = {
+    "diagnosis": "Instabilidade na saída.", "confidence": "baixa", "choices": [],
+    "clarification_question": "A traseira escapa antes ou depois de acelerar?",
+}
 
 ACC_SETUP = {
     "carName": "ford_mustang_gt3",
@@ -129,14 +133,10 @@ def test_api_persistence_failure_and_real_contract(client):
             if self.fail:
                 raise LLMTimeoutError("Teste de timeout")
             if self.changes:
-                return json.dumps({**REPLY, "changes": [{
-                    "parameter": "Asa traseira", "current_value": "8",
-                    "recommended_adjustment": "reduzir gradualmente",
-                    "rationale": "Reduzir o arrasto.",
-                    "positive_effects": ["mais velocidade final"],
-                    "negative_effects": ["menos estabilidade em alta"],
-                }], "trade_offs": ["arrasto"], "test_plan": {"laps": 5, "focus": ["reta"]}})
-            return json.dumps(REPLY)
+                return json.dumps({**DRAFT_REPLY, "choices": [{
+                    "parameter": "rear_wing", "direction": "decrease",
+                }]})
+            return json.dumps(DRAFT_REPLY)
 
     repo = SessionRepository()
     provider = FakeProvider()
@@ -162,7 +162,7 @@ def test_api_persistence_failure_and_real_contract(client):
         provider.changes = False
         sent = client.post(url, json={"content": "Traseira solta"})
         assert sent.status_code == 200
-        assert "antes ou depois" in sent.json()["engineer_message"]
+        assert "Importe" in sent.json()["engineer_message"]
         assert [m["role"] for m in client.get(url).json()] == [
             "user", "assistant", "user", "assistant",
         ]
@@ -215,3 +215,70 @@ def test_invalid_or_unsupported_setup_is_rejected_without_creating_session(clien
         "setup_file": {"filename": "teste.json", "content": ACC_SETUP},
     })
     assert unsupported.status_code == 422
+
+
+def test_bounded_recommendation_saved_without_editing_setup(client, monkeypatch):
+    class Provider:
+        async def chat(self, messages, response_schema=None):
+            assert "choices" in response_schema["properties"]
+            assert '"value_in_file":3' in messages[1].content
+            assert '"max":11' in messages[1].content
+            return json.dumps({**DRAFT_REPLY, "choices": [
+                {"parameter": "traction_control", "direction": "increase"},
+                {"parameter": "rear_anti_roll_bar", "direction": "decrease"},
+            ]})
+
+    monkeypatch.setenv("VRE_ACC_GAME_VERSION", "1.10.3")
+    get_settings.cache_clear()
+    monkeypatch.setattr("app.api.dependencies.get_ollama_provider", lambda: Provider())
+    created = client.post("/api/v1/sessions", json={
+        "simulator": "ACC", "car": "ford_mustang_gt3", "track": "Barcelona",
+        "session_type": "Treino", "setup_file": {"filename": "teste.json", "content": ACC_SETUP},
+    })
+    session_id = created.json()["id"]
+    setup_url = f"/api/v1/sessions/{session_id}/setup/history"
+    before = client.get(setup_url).json()
+    message_url = f"/api/v1/sessions/{session_id}/messages"
+    answer = client.post(message_url, json={"content": "A traseira escapa quando acelero. Perco velocidade final."})
+    assert answer.status_code == 200
+    text = answer.json()["engineer_message"]
+    assert "3 → 4" in text and "2 → 1" in text
+    assert "Pode piorar:" in text
+    assert client.get(message_url).json()[-1]["content"] == text
+    assert client.get(setup_url).json() == before
+
+
+def test_invalid_draft_is_retried_once_before_returning_an_error(client):
+    class Provider:
+        def __init__(self):
+            self.calls = 0
+
+        async def chat(self, messages, response_schema=None):
+            self.calls += 1
+            if self.calls == 1:
+                return "resposta sem JSON"
+            assert "resposta anterior" in messages[-1].content
+            return json.dumps(DRAFT_REPLY)
+
+    from app.ai.context_builder import EngineerContextBuilder
+    from app.repositories.session_repository import SessionRepository
+    from app.services.engineer_service import EngineerService
+    from app.services.knowledge_service import KnowledgeService
+    from app.services.session_service import SessionService
+
+    provider = Provider()
+    repo = SessionRepository()
+    service = EngineerService(repo, SessionService(repo), EngineerContextBuilder(KnowledgeService()), provider)
+    app.dependency_overrides[get_engineer_service] = lambda: service
+    try:
+        created = client.post("/api/v1/sessions", json={
+            "simulator": "iRacing", "car": "BMW M4 GT3", "track": "Monza", "session_type": "Treino",
+        })
+        response = client.post(
+            f"/api/v1/sessions/{created.json()['id']}/messages",
+            json={"content": "A traseira está solta."},
+        )
+        assert response.status_code == 200
+        assert provider.calls == 2
+    finally:
+        app.dependency_overrides.clear()

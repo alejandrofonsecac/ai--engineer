@@ -20,10 +20,19 @@ class SessionType(StrEnum):
 
 
 class SetupChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     parameter: str = Field(min_length=1, max_length=100)
-    previous_value: str = Field(min_length=1, max_length=80)
-    proposed_value: str = Field(min_length=1, max_length=80)
+    current_value: str = Field(min_length=1, max_length=100)
+    recommended_adjustment: str = Field(min_length=1, max_length=160)
     rationale: str = Field(min_length=1, max_length=500)
+    positive_effects: list[str] = Field(min_length=1, max_length=3)
+    negative_effects: list[str] = Field(min_length=1, max_length=3)
+
+    @field_validator("current_value", "recommended_adjustment", mode="before")
+    @classmethod
+    def stringify_values(cls, value: Any) -> Any:
+        return str(value) if isinstance(value, (int, float)) else value
 
 
 class TestPlan(BaseModel):
@@ -32,6 +41,8 @@ class TestPlan(BaseModel):
 
 
 class EngineerRecommendation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     diagnosis: str = Field(min_length=1, max_length=1000)
     confidence: str = Field(pattern="^(baixa|média|alta)$")
     changes: list[SetupChange] = Field(default_factory=list, max_length=5)
@@ -39,6 +50,13 @@ class EngineerRecommendation(BaseModel):
     trade_offs: list[str] = Field(default_factory=list, max_length=5)
     test_plan: TestPlan | None = None
     clarification_question: str | None = Field(default=None, max_length=500)
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def normalize_confidence(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return {"media": "média", "MEDIA": "média"}.get(value, value.lower())
+        return value
 
     @model_validator(mode="after")
     def validate_recommendation(self) -> "EngineerRecommendation":

@@ -1,5 +1,9 @@
 # Backend e IA local — Virtual Race Engineer
 
+Para conhecer o objetivo do projeto, os requisitos e o passo a passo completo
+de instalação e execução do frontend, backend e Ollama, leia o
+[README principal](../README.md). Este guia detalha a operação do backend.
+
 O modelo padrão é **qwen2.5:3b**, conforme os testes locais do usuário.
 Ollama é o programa que executa os modelos; Qwen e Llama são famílias de modelos
 diferentes. Este projeto usa Qwen pelo Ollama, sem precisar treinar ou criar

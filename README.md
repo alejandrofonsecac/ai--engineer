@@ -16,9 +16,11 @@ O projeto está em desenvolvimento. Atualmente, é possível criar uma sessão,
 informar simulador, carro e pista, conversar com a IA local e retomar a conversa
 salva. O chat analisa sintomas, pede informações e orienta testes de observação.
 
-**A criação e a aplicação de ajustes de setup ainda não estão disponíveis.**
-Recomendações de valores permanecem bloqueadas até existirem parsers e limites
-validados por carro e simulador. Importação e exportação de setups, voz e
+O setup inicial do ACC pode ser importado em JSON ao criar uma sessão. O sistema
+preserva o arquivo original no banco e salva uma representação normalizada como
+a primeira versão. **A aplicação de ajustes de setup ainda não está disponível.**
+Recomendações de valores permanecem bloqueadas até existirem limites validados
+por carro e simulador. Importação de iRacing, exportação de setups, voz e
 telemetria ainda não estão conectadas. As telas demonstrativas de setup e
 comparação não representam resultados da IA local.
 

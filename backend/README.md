@@ -104,7 +104,7 @@ e FPS com ACC aberto antes de aumentar contexto ou modelo.
 - `GET http://127.0.0.1:8000/api/v1/health/llm`: Ollama e modelo instalado.
   Disponibilidade não mede velocidade nem confirma carregamento na GPU.
 - `http://127.0.0.1:8000/docs`: documentação interativa da API.
-- `POST /api/v1/sessions`: criar sessão.
+- `POST /api/v1/sessions`: criar sessão, com upload opcional de setup JSON do ACC.
 - `GET /api/v1/sessions/{id}`: recuperar contexto.
 - `GET /api/v1/sessions/{id}/messages`: últimas 100 mensagens.
 - `POST /api/v1/sessions/{id}/messages`: corpo `{"content":"seu relato"}`.
@@ -131,9 +131,11 @@ antes de reenviar, pois o backend pode ainda concluir a solicitação.
 O chat real analisa sintomas, pede informações e orienta observações.
 O backend conserva o contrato estruturado e o limite de cinco mudanças, mas
 bloqueia propostas de alteração enquanto não houver parsers e limites
-validados por carro/simulador. Importação ACC/iRacing, aplicação/exportação de
-setups, voz e telemetria ainda não estão conectadas. Nenhum arquivo de setup é
-modificado por este fluxo.
+validados por carro/simulador. O setup JSON inicial do ACC pode ser importado ao
+criar a sessão. O arquivo original e uma representação normalizada ficam
+preservados no SQLite como a versão 1. Importação de iRacing,
+aplicação/exportação de alterações, voz e telemetria ainda não estão conectadas.
+Nenhum arquivo de setup é modificado por este fluxo.
 
 A API é local, sem autenticação; mantenha os serviços em loopback.
 Não é preciso abrir portas no roteador.

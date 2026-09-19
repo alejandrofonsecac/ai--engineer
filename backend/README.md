@@ -78,7 +78,7 @@ mudar a porta exige ajustar também o CORS do backend.
 
 ## Configuração e desempenho
 
-Os padrões são `temperature=0.2`, `num_ctx=4096`, `num_predict=300`,
+Os padrões são `temperature=0.2`, `num_ctx=4096`, `num_predict=700`,
 `keep_alive=5m`, `stream=False` e timeout de 180 segundos.
 O modelo de 3B foi escolhido pelos testes relatados pelo usuário: cerca de
 5,84 tokens/s, contra 1,82 tokens/s no 7B. Não são benchmarks deste backend.
@@ -89,7 +89,8 @@ a 1.600 caracteres. Setup excessivamente grande é omitido explicitamente.
 A interface envia até 1.200 caracteres por mensagem. Há uma geração por vez
 nesta instância do backend; mantenha um único processo/worker no desenvolvimento.
 
-Para respostas truncadas, tente `VRE_OLLAMA_NUM_PREDICT=450` (mais lento).
+O limite de 700 tokens comporta diagnóstico, efeitos positivos e negativos e o
+plano de teste. Reduzi-lo pode truncar o JSON estruturado.
 Para liberar memória após cada resposta, use `VRE_OLLAMA_KEEP_ALIVE=0`
 (a próxima chamada precisará recarregar o modelo). Reinicie o backend após editar
 o arquivo .env. Um timeout HTTP não garante que o Ollama interrompeu a geração.
@@ -129,9 +130,10 @@ antes de reenviar, pois o backend pode ainda concluir a solicitação.
 ## Limites desta etapa
 
 O chat real analisa sintomas, pede informações e orienta observações.
-O backend conserva o contrato estruturado e o limite de cinco mudanças, mas
-bloqueia propostas de alteração enquanto não houver parsers e limites
-validados por carro/simulador. O setup JSON inicial do ACC pode ser importado ao
+O backend conserva o contrato estruturado e permite recomendações direcionais
+com até cinco mudanças, valor atual, benefício e possível efeito negativo.
+Valores numéricos novos e aplicação automática continuam bloqueados enquanto
+não houver limites validados por carro/simulador. O setup JSON inicial do ACC pode ser importado ao
 criar a sessão. O arquivo original e uma representação normalizada ficam
 preservados no SQLite como a versão 1. Importação de iRacing,
 aplicação/exportação de alterações, voz e telemetria ainda não estão conectadas.

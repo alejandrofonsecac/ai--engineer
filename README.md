@@ -18,9 +18,11 @@ salva. O chat analisa sintomas, pede informações e orienta testes de observaç
 
 O setup inicial do ACC pode ser importado em JSON ao criar uma sessão. O sistema
 preserva o arquivo original no banco e salva uma representação normalizada como
-a primeira versão. **A aplicação de ajustes de setup ainda não está disponível.**
-Recomendações de valores permanecem bloqueadas até existirem limites validados
-por carro e simulador. Importação de iRacing, exportação de setups, voz e
+a primeira versão. O engenheiro pode recomendar ajustes direcionais com base nos
+valores importados, explicando benefícios, efeitos negativos e um plano de teste.
+**A aplicação de ajustes de setup ainda não está disponível.** Novos valores
+numéricos permanecem bloqueados até existirem limites validados por carro e
+simulador. Importação de iRacing, exportação de setups, voz e
 telemetria ainda não estão conectadas. As telas demonstrativas de setup e
 comparação não representam resultados da IA local.
 
@@ -199,7 +201,7 @@ O backend lê `backend/.env`. A configuração inicial está em
 | `VRE_OLLAMA_MODEL` | `qwen2.5:3b` | Modelo usado no chat |
 | `VRE_OLLAMA_TEMPERATURE` | `0.2` | Variação das respostas |
 | `VRE_OLLAMA_NUM_CTX` | `4096` | Janela de contexto em tokens |
-| `VRE_OLLAMA_NUM_PREDICT` | `300` | Limite de tokens da resposta |
+| `VRE_OLLAMA_NUM_PREDICT` | `700` | Limite de tokens da resposta estruturada |
 | `VRE_OLLAMA_KEEP_ALIVE` | `5m` | Tempo para manter o modelo carregado |
 | `VRE_OLLAMA_TIMEOUT_SECONDS` | `180` | Tempo máximo de espera pela IA |
 

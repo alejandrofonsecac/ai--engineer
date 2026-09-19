@@ -5,10 +5,14 @@ export type Session = {
   track: string
   session_type: string
   current_setup_version: number
+  has_setup: boolean
 }
 export type ChatMessage = { role: 'user' | 'assistant'; content: string }
 export type Health = { available: boolean; model: string; detail: string }
-export type SessionInput = Pick<Session, 'simulator' | 'car' | 'track' | 'session_type'>
+export type SetupFileInput = { filename: string; content: Record<string, unknown> }
+export type SessionInput = Pick<Session, 'simulator' | 'car' | 'track' | 'session_type'> & {
+  setup_file?: SetupFileInput
+}
 
 // O navegador só acessa FastAPI. Ollama é uma dependência privada do backend.
 const base = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '')
@@ -49,4 +53,3 @@ export const api = {
     { method: 'POST', body: JSON.stringify({ content }) }, 210000,
   ),
 }
-
